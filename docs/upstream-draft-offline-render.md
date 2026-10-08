@@ -81,6 +81,7 @@ Adds `Client.isOfflineRendering()` and `TimeInfo.offline`, so plugins can switch
 ### API contract
 
 - `isOfflineRendering()` is `nothrow @nogc` and safe from the audio thread; the backing flag is a plain `shared(bool)` atomic.
+- `setOfflineRendering(bool)` is for plugin format clients only, called from the format glue.
 - No allocation, no lock.
 - Default is `false` when the host doesn't report anything — plugins never enable expensive processing on a guess.
 - Changing the value does not force a `reset()`; plugins decide whether to re-prepare.
@@ -88,7 +89,7 @@ Adds `Client.isOfflineRendering()` and `TimeInfo.offline`, so plugins can switch
 ### Tested
 
 - `dub test :client` — 4 modules pass.
-- `dub test :formats -d-version=VST3 -d-version=CLAP -unittest` — 26 modules pass.
+- `DFLAGS="-d-version=VST3 -d-version=CLAP -unittest" dub test :formats` — 26 modules pass. (Note for Linux shells; on Windows PowerShell the equivalent is `$env:DFLAGS = "-d-version=VST3 -d-version=CLAP -unittest"; dub test :formats`.)
 - (Windows, LDC.)
 
 ### Compile-review only
