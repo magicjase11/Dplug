@@ -21,6 +21,7 @@ Hosts do expose this state, but through format-specific channels that dplug 16.5
 | VST2 | `audioMasterGetCurrentProcessLevel` returning `kVstProcessLevelOffline` (4) | not queried |
 | AUv2 | `kAudioUnitProperty_OfflineRender` (property ID 37) | setter is a no-op |
 | LV2 | `lv2:freeWheeling` designated control port | not declared in the plugin TTL |
+| FLP | `FPD_ProcessMode` dispatch bitfield — `PM_IsRendering` (16) is the explicit "host is rendering to a file" flag | value ignored by the handler |
 | AAX | n/a — out of scope; dplug has no AAX client | — |
 
 Note that for VST3 the mode can change without the host calling `setupProcessing` again, so it has to be re-read from `ProcessData` on every `process` call.
@@ -44,12 +45,13 @@ Hosts do not notify consistently, which is why the state is re-read per block an
 - The value can change mid-session (a user can start a bounce while the plugin keeps running), so it must be polled per block rather than assumed fixed.
 - No thread-priority heuristics: unlike JUCE, which falls back to checking thread priority when the host doesn't report, dplug only reports what the host actually says.
 - REAPER only reports offline rendering to VST plug-ins if the "Inform VST plug-ins of offline rendering" preference is enabled.
+- For FLP, only the `PM_IsRendering` bit is treated as offline; `PM_HQ_NonRealtime` is a quality heuristic ("normally set when rendering only") and is deliberately ignored.
 
 ### Implementation status
 
-All six format clients are wired: VST3, CLAP, VST2, AU and LV2 read the host state as described above; FLP documents that the FL SDK exposes no offline state (FL plugins always run realtime from the plugin's point of view).
+All six format clients are wired: VST3, CLAP, VST2, AU, LV2 and FLP read the host state as described above.
 
-VST3 and CLAP are covered by unit tests on Windows/LDC. VST2, AU and LV2 are compile-reviewed only at this point, pending access to the respective SDKs/platforms.
+VST3, CLAP and FLP are covered by unit tests on Windows/LDC. VST2, AU and LV2 are compile-reviewed only at this point, pending access to the respective SDKs/platforms.
 
 ### Testing notes
 
@@ -76,7 +78,7 @@ Adds `Client.isOfflineRendering()` and `TimeInfo.offline`, so plugins can switch
 - **VST2:** `audioMasterGetCurrentProcessLevel` polled per block; `kVstProcessLevelOffline` (4) means offline, any unknown level (0) is treated as realtime.
 - **AU:** `kAudioUnitProperty_OfflineRender` (37) — the property setter was previously a no-op, it now stores the value and the getter reads it back; `TimeInfo.offline` filled.
 - **LV2:** declares an `lv2:freeWheeling` designated input control port (connectionOptional, notOnGUI, appended last in the TTL); `run` reads it per block.
-- **FLP:** the FL SDK exposes no offline-render state; documented as always realtime.
+- **FLP:** the `FPD_ProcessMode` dispatch value is decoded — `PM_IsRendering` (16) means the host is rendering to a file; the `PM_HQ_NonRealtime` quality bit is deliberately not treated as offline. `TimeInfo.offline` filled per block.
 
 ### API contract
 
@@ -89,7 +91,7 @@ Adds `Client.isOfflineRendering()` and `TimeInfo.offline`, so plugins can switch
 ### Tested
 
 - `dub test :client` — 4 modules pass.
-- `DFLAGS="-d-version=VST3 -d-version=CLAP -unittest" dub test :formats` — 26 modules pass. (Note for Linux shells; on Windows PowerShell the equivalent is `$env:DFLAGS = "-d-version=VST3 -d-version=CLAP -unittest"; dub test :formats`.)
+- `DFLAGS="-d-version=VST3 -d-version=CLAP -d-version=FLP -unittest" dub test :formats` — 27 modules pass. (Note for Linux shells; on Windows PowerShell the equivalent is `$env:DFLAGS = "-d-version=VST3 -d-version=CLAP -d-version=FLP -unittest"; dub test :formats`.)
 - (Windows, LDC.)
 
 ### Compile-review only
