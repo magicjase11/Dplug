@@ -26,6 +26,8 @@ Hosts do expose this state, but through format-specific channels that dplug 16.5
 
 Note that for VST3 the mode can change without the host calling `setupProcessing` again, so it has to be re-read from `ProcessData` on every `process` call.
 
+VST3 also has `IComponent::setIoMode(kOfflineProcessing)`, an initialization-time hint used for offline contexts such as Cubase's Direct Offline Processing. It is deliberately out of scope here: it is static per-instance context set before `initialize`, not a dynamic per-block state, and deserves its own discussion.
+
 ### Proposal
 
 - `Client.isOfflineRendering() nothrow @nogc` — safe to call from the audio thread. Backed by an atomic; no lock, no allocation.
